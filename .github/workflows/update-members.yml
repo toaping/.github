@@ -1,0 +1,79 @@
+name: Update Organization Members
+
+on:
+  schedule:
+    # 매일 자정(UTC)에 실행
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 수동 실행 가능
+  push:
+    branches:
+      - main
+
+jobs:
+  update-members:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch organization members
+        id: fetch-members
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG_NAME: toaping
+        run: |
+          # Organization 멤버 가져오기
+          members=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/orgs/$ORG_NAME/members")
+
+          # 테이블 생성
+          table="| Avatar | Name | GitHub | Role |\n|:------:|:----:|:------:|:----:|\n"
+
+          echo "$members" | jq -r '.[] | "\(.login)|\(.avatar_url)|\(.html_url)"' | while IFS='|' read -r login avatar url; do
+            # Role은 수동으로 지정해야 하므로 기본값 "Developer" 사용
+            table="${table}| <img src=\"${avatar}\" width=\"80\"> | ${login} | [@${login}](${url}) | Developer |\n"
+          done
+
+          # 결과 저장
+          echo "$table" > /tmp/members_table.txt
+
+      - name: Update README
+        run: |
+          # 기존 README 읽기
+          readme_path="profile/README.md"
+
+          # 새 테이블 읽기
+          new_table=$(cat /tmp/members_table.txt)
+
+          # README 업데이트 (<!-- ORGANIZATION_MEMBERS:START -->와 <!-- ORGANIZATION_MEMBERS:END --> 사이 내용 교체)
+          awk -v table="$new_table" '
+            /<!-- ORGANIZATION_MEMBERS:START -->/ {
+              print
+              print "<!-- 아래 테이블은 자동으로 업데이트됩니다 -->"
+              print ""
+              print table
+              skip=1
+              next
+            }
+            /<!-- ORGANIZATION_MEMBERS:END -->/ {
+              skip=0
+            }
+            !skip
+          ' "$readme_path" > /tmp/readme_updated.md
+
+          mv /tmp/readme_updated.md "$readme_path"
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add profile/README.md
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update organization members [skip ci]"
+            git push
+          fi
