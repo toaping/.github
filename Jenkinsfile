@@ -25,6 +25,7 @@ pipeline {
                 
                 slackSend (
                     channel: '#소셜', // 본인의 채널명
+		    tokenCredentialId: 'ZLmj5VkpqZJeA2pf9YZoJNWJ',
                     color: color,
                     message: "📢 *Build ${buildStatus}*: Job '${env.JOB_NAME}' [#${env.BUILD_NUMBER}]\nCheck it out here: ${env.BUILD_URL}"
                 )
