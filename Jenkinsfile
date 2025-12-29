@@ -24,7 +24,7 @@ pipeline {
                 def color = (buildStatus == 'SUCCESS') ? '#00FF00' : '#FF0000'
                 
                 slackSend (
-                    channel: '#소셜', // 본인의 채널명
+                    channel: '#jenkins-alert', // 본인의 채널명
 		    tokenCredentialId: 'slack-token',
                     color: color,
                     message: "📢 *Build ${buildStatus}*: Job '${env.JOB_NAME}' [#${env.BUILD_NUMBER}]\nCheck it out here: ${env.BUILD_URL}"
